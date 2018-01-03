@@ -21,12 +21,6 @@
 
 namespace misc
 {
-	//Forward-declare this function as it is called by the function legacy_visit
-	template<class Visitor, class FirstVisitable>
-	inline auto visit(Visitor&& visitor, FirstVisitable&& first) -> decltype(
-		detail::visit_impl<typename detail::const_propagated_visitable_types<FirstVisitable>::type>(std::forward<Visitor>(visitor), std::forward<FirstVisitable>(first))
-		);
-
 	namespace detail
 	{
 		template<class Visitor, class AHierarchyType, class VisitableStorageType>
@@ -176,29 +170,42 @@ namespace misc
 			const auto overallIndex = index(first) * secondHierarchySize + index(second);
 			return functionArray[overallIndex](std::forward<Visitor>(visitor), &first, &second);
 		}
+	}
 
-		//Legacy-Support: Old Visitor-Types have a member function Visit instead of operator(). So we wrap these old visitors.
-		template<class LegacyVisitor>
-		struct LegacyVisitorWrapper
+
+	//Forward-declare this function as it is called by the function legacy_visit
+	template<class Visitor, class FirstVisitable>
+	inline auto visit(Visitor&& visitor, FirstVisitable&& first) -> decltype(
+		detail::visit_impl<typename detail::const_propagated_visitable_types<FirstVisitable>::type>(std::forward<Visitor>(visitor), std::forward<FirstVisitable>(first))
+		);
+
+	namespace detail
+	{
+		namespace legacy
 		{
-			LegacyVisitorWrapper(LegacyVisitor& legacyVisitorRef)
-				: m_legacyVisitorRef(legacyVisitorRef) {}
-
-			template<class AVisitable>
-			void operator()(AVisitable&& visitable)
+			//Legacy-Support: Old Visitor-Types have a member function Visit instead of operator(). So we wrap these old visitors.
+			template<class LegacyVisitor>
+			struct LegacyVisitorWrapper
 			{
-				m_legacyVisitorRef.Visit(visitable);
+				LegacyVisitorWrapper(LegacyVisitor& legacyVisitorRef)
+					: m_legacyVisitorRef(legacyVisitorRef) {}
+
+				template<class AVisitable>
+				void operator()(AVisitable&& visitable)
+				{
+					m_legacyVisitorRef.Visit(visitable);
+				}
+
+				LegacyVisitor& m_legacyVisitorRef;
+			};
+
+			template<class LegacyVisitor, class Visitable>
+			inline void legacy_visit(LegacyVisitor&& legacyVisitor, Visitable&& visitable)
+			{
+				typedef typename std::remove_reference<LegacyVisitor>::type LV;
+				LegacyVisitorWrapper<LV> wrapper(legacyVisitor);
+				visit(wrapper, visitable);
 			}
-
-			LegacyVisitor& m_legacyVisitorRef;
-		};
-
-		template<class LegacyVisitor, class Visitable>
-		inline void legacy_visit(LegacyVisitor&& legacyVisitor, Visitable&& visitable)
-		{
-			typedef typename std::remove_reference<LegacyVisitor>::type LV;
-			LegacyVisitorWrapper<LV> wrapper(legacyVisitor);
-			visit(wrapper, visitable);
 		}
 	}
 
@@ -224,16 +231,16 @@ namespace misc
 		//Legacy-Code
 
 		template<class LegacyVisitor>
-		void AcceptVisitor(LegacyVisitor&& v) { detail::legacy_visit(v, *this); }
+		void AcceptVisitor(LegacyVisitor&& v) { detail::legacy::legacy_visit(v, *this); }
 
 		template<class LegacyVisitor>
-		void AcceptVisitor(LegacyVisitor&& v) const { detail::legacy_visit(v, *this); }
+		void AcceptVisitor(LegacyVisitor&& v) const { detail::legacy::legacy_visit(v, *this); }
 
 		template<class LegacyVisitor>
-		void AcceptVirtual(LegacyVisitor&& v) { detail::legacy_visit(v, *this); }
+		void AcceptVirtual(LegacyVisitor&& v) { detail::legacy::legacy_visit(v, *this); }
 
 		template<class LegacyVisitor>
-		void AcceptVirtual(LegacyVisitor&& v) const { detail::legacy_visit(v, *this); }
+		void AcceptVirtual(LegacyVisitor&& v) const { detail::legacy::legacy_visit(v, *this); }
 
 	protected:
 		template<class ActualType>
