@@ -173,13 +173,6 @@ namespace misc
 
 	}
 
-	//Forward-declare this function as it is called by the legacy-Accept-functions
-	template<class Visitor, class FirstVisitable>
-	inline auto visit(Visitor&& visitor, FirstVisitable&& first) -> decltype(
-			detail::visit_impl<typename detail::const_propagated_visitable_types<FirstVisitable>::type>(std::forward<Visitor>(visitor), std::forward<FirstVisitable>(first))
-			);
-
-
 	//Visitable API:
 
 	template<class T>
@@ -197,20 +190,6 @@ namespace misc
 
 	public:
 		typedef VisitableTypes visitable_types;
-
-		//Legacy-Code
-
-		template<class LegacyVisitor>
-		void AcceptVisitor(LegacyVisitor&& v) { visit(v, *this); }
-
-		template<class LegacyVisitor>
-		void AcceptVisitor(LegacyVisitor&& v) const { visit(v, *this); }
-
-		template<class LegacyVisitor>
-		void AcceptVirtual(LegacyVisitor&& v) { visit(v, *this); }
-
-		template<class LegacyVisitor>
-		void AcceptVirtual(LegacyVisitor&& v) const { visit(v, *this); }
 
 	protected:
 		template<class ActualType>
