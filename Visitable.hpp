@@ -21,6 +21,12 @@
 
 namespace misc
 {
+	//Forward-declare this function as it is called by the function legacy_visit
+	template<class Visitor, class FirstVisitable>
+	inline auto visit(Visitor&& visitor, FirstVisitable&& first) -> decltype(
+		detail::visit_impl<typename detail::const_propagated_visitable_types<FirstVisitable>::type>(std::forward<Visitor>(visitor), std::forward<FirstVisitable>(first))
+		);
+
 	namespace detail
 	{
 		template<class Visitor, class AHierarchyType, class VisitableStorageType>
@@ -120,7 +126,7 @@ namespace misc
 		};
 
 		template<class Visitable>
-		std::size_t index(const Visitable& v) { return v.m_hierarchyTypeIndex; }
+		inline std::size_t index(const Visitable& v) { return v.m_hierarchyTypeIndex; }
 
 		template<class Hierarchy, class Visitor, class FirstVisitable>
 		inline auto visit_impl(Visitor&& visitor, FirstVisitable&& first)
@@ -171,7 +177,31 @@ namespace misc
 			return functionArray[overallIndex](std::forward<Visitor>(visitor), &first, &second);
 		}
 
+		//Legacy-Support: Old Visitor-Types have a member function Visit instead of operator(). So we wrap these old visitors.
+		template<class LegacyVisitor>
+		struct LegacyVisitorWrapper
+		{
+			LegacyVisitorWrapper(LegacyVisitor& legacyVisitorRef)
+				: m_legacyVisitorRef(legacyVisitorRef) {}
+
+			template<class AVisitable>
+			void operator()(AVisitable&& visitable)
+			{
+				m_legacyVisitorRef.Visit(visitable);
+			}
+
+			LegacyVisitor& m_legacyVisitorRef;
+		};
+
+		template<class LegacyVisitor, class Visitable>
+		inline void legacy_visit(LegacyVisitor&& legacyVisitor, Visitable&& visitable)
+		{
+			typedef typename std::remove_reference<LegacyVisitor>::type LV;
+			LegacyVisitorWrapper<LV> wrapper(legacyVisitor);
+			visit(wrapper, visitable);
+		}
 	}
+
 
 	//Visitable API:
 
@@ -190,6 +220,20 @@ namespace misc
 
 	public:
 		typedef VisitableTypes visitable_types;
+
+		//Legacy-Code
+
+		template<class LegacyVisitor>
+		void AcceptVisitor(LegacyVisitor&& v) { detail::legacy_visit(v, *this); }
+
+		template<class LegacyVisitor>
+		void AcceptVisitor(LegacyVisitor&& v) const { detail::legacy_visit(v, *this); }
+
+		template<class LegacyVisitor>
+		void AcceptVirtual(LegacyVisitor&& v) { detail::legacy_visit(v, *this); }
+
+		template<class LegacyVisitor>
+		void AcceptVirtual(LegacyVisitor&& v) const { detail::legacy_visit(v, *this); }
 
 	protected:
 		template<class ActualType>
